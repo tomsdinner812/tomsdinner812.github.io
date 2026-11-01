@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#111827">
+  <title>Калькулятор</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: var(--tg-theme-bg-color, #111827);
+      --panel: var(--tg-theme-secondary-bg-color, #1f2937);
+      --text: var(--tg-theme-text-color, #f9fafb);
+      --muted: var(--tg-theme-hint-color, #9ca3af);
+      --accent: var(--tg-theme-button-color, #3390ec);
+      --accent-text: var(--tg-theme-button-text-color, #ffffff);
+      --key: #293548;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100dvh; padding: 18px;
+      display: flex; justify-content: center; align-items: center;
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .app { width: min(100%, 430px); }
+    .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+    h1 { margin:0; font-size:20px; font-weight:700; }
+    .badge { color:var(--muted); font-size:12px; }
+    .screen {
+      min-height: 140px; padding: 20px 18px; margin-bottom: 14px;
+      background:var(--panel); border-radius:20px;
+      display:flex; flex-direction:column; justify-content:flex-end; align-items:flex-end;
+      overflow:hidden;
+    }
+    #history { min-height:22px; color:var(--muted); font-size:16px; width:100%; text-align:right; overflow:hidden; text-overflow:ellipsis; }
+    #display { width:100%; text-align:right; font-size:clamp(36px, 12vw, 54px); font-weight:600; line-height:1.15; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    button {
+      height:64px; border:0; border-radius:16px; background:var(--key); color:var(--text);
+      font-size:23px; font-weight:600; cursor:pointer; touch-action:manipulation;
+      transition:transform .08s, filter .12s;
+    }
+    button:active { transform:scale(.96); filter:brightness(1.2); }
+    button.utility { color:var(--accent); }
+    button.operator { background:color-mix(in srgb, var(--accent) 23%, var(--key)); color:var(--accent); }
+    button.equals { background:var(--accent); color:var(--accent-text); }
+    button.wide { grid-column:span 2; }
+    .foot { text-align:center; color:var(--muted); font-size:12px; margin-top:14px; }
+    @media (max-height: 650px) {
+      body { align-items:flex-start; padding-top:10px; }
+      button { height:54px; }
+      .screen { min-height:110px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="top"><h1>Калькулятор</h1><span class="badge">Telegram Mini App</span></header>
+    <section class="screen" aria-live="polite">
+      <div id="history"></div>
+      <div id="display">0</div>
+    </section>
+    <section class="grid" aria-label="Клавиатура калькулятора">
+      <button class="utility" data-action="clear">AC</button>
+      <button class="utility" data-action="sign">±</button>
+      <button class="utility" data-action="percent">%</button>
+      <button class="operator" data-op="÷">÷</button>
+
+      <button data-digit="7">7</button><button data-digit="8">8</button><button data-digit="9">9</button><button class="operator" data-op="×">×</button>
+      <button data-digit="4">4</button><button data-digit="5">5</button><button data-digit="6">6</button><button class="operator" data-op="−">−</button>
+      <button data-digit="1">1</button><button data-digit="2">2</button><button data-digit="3">3</button><button class="operator" data-op="+">+</button>
+      <button class="wide" data-digit="0">0</button><button data-action="decimal">.</button><button class="equals" data-action="equals">=</button>
+    </section>
+    <div class="foot">Поддерживает клавиатуру устройства</div>
+  </main>
+<script>
+(() => {
+  const tg = window.Telegram?.WebApp;
+  if (tg) { tg.ready(); tg.expand(); }
+  const display = document.getElementById('display');
+  const history = document.getElementById('history');
+  let current = '0', previous = null, operator = null, resetNext = false;
+  const render = () => { display.textContent = current; };
+  const clean = n => {
+    if (!Number.isFinite(n)) return 'Ошибка';
+    const rounded = Number(n.toPrecision(12));
+    return String(rounded);
+  };
+  function digit(d) {
+    if (current === 'Ошибка' || resetNext) { current = d; resetNext = false; }
+    else if (current === '0') current = d;
+    else if (current.replace('-', '').length < 14) current += d;
+    render();
+  }
+  function decimal() {
+    if (current === 'Ошибка' || resetNext) { current = '0'; resetNext = false; }
+    if (!current.includes('.')) current += '.';
+    render();
+  }
+  function calculate(a, op, b) {
+    if (op === '+') return a + b;
+    if (op === '−') return a - b;
+    if (op === '×') return a * b;
+    if (op === '÷') return b === 0 ? NaN : a / b;
+    return b;
+  }
+  function choose(op) {
+    if (current === 'Ошибка') return;
+    if (operator && !resetNext) {
+      const result = calculate(Number(previous), operator, Number(current));
+      current = clean(result); render();
+      previous = current;
+    } else previous = current;
+    operator = op; resetNext = true;
+    history.textContent = `${previous} ${operator}`;
+  }
+  function equals() {
+    if (!operator || current === 'Ошибка') return;
+    const left = previous, right = current;
+    current = clean(calculate(Number(left), operator, Number(right)));
+    history.textContent = `${left} ${operator} ${right} =`;
+    previous = null; operator = null; resetNext = true; render();
+  }
+  function clear() { current='0'; previous=null; operator=null; resetNext=false; history.textContent=''; render(); }
+  function action(name) {
+    if (name === 'clear') return clear();
+    if (name === 'decimal') return decimal();
+    if (name === 'equals') return equals();
+    if (current === 'Ошибка') return;
+    if (name === 'sign') current = clean(-Number(current));
+    if (name === 'percent') current = clean(Number(current) / 100);
+    render();
+  }
+  document.querySelector('.grid').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.digit !== undefined) digit(b.dataset.digit);
+    else if (b.dataset.op) choose(b.dataset.op);
+    else if (b.dataset.action) action(b.dataset.action);
+    if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+  });
+  document.addEventListener('keydown', e => {
+    if (/^[0-9]$/.test(e.key)) digit(e.key);
+    else if (e.key === '.' || e.key === ',') decimal();
+    else if (e.key === '+') choose('+');
+    else if (e.key === '-') choose('−');
+    else if (e.key === '*') choose('×');
+    else if (e.key === '/') { e.preventDefault(); choose('÷'); }
+    else if (e.key === 'Enter' || e.key === '=') equals();
+    else if (e.key === 'Escape' || e.key === 'Delete') clear();
+    else if (e.key === 'Backspace') {
+      current = current.length > 1 ? current.slice(0,-1) : '0'; render();
+    }
+  });
+})();
+</script>
+</body>
+</html>
