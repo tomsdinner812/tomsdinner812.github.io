@@ -3,158 +3,425 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <meta name="theme-color" content="#111827">
-  <title>Калькулятор</title>
+  <meta name="theme-color" content="#ffffff">
+  <title>TelegraMath</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
   <style>
     :root {
-      color-scheme: dark;
-      --bg: var(--tg-theme-bg-color, #111827);
-      --panel: var(--tg-theme-secondary-bg-color, #1f2937);
-      --text: var(--tg-theme-text-color, #f9fafb);
-      --muted: var(--tg-theme-hint-color, #9ca3af);
-      --accent: var(--tg-theme-button-color, #3390ec);
-      --accent-text: var(--tg-theme-button-text-color, #ffffff);
-      --key: #293548;
+      --calc-gradient: linear-gradient(45deg, #9ca3af 0%, #e5e7eb 40%, #ffffff 80%);
+      --screen-bg: #b8c4a8;
+      --screen-text: #1a2517;
+      --btn-gradient: linear-gradient(135deg, #4b5563 0%, #1f2937 50%, #111827 100%);
+      --btn-text: #ffffff;
     }
+
     * { box-sizing: border-box; }
+
     body {
-      margin: 0; min-height: 100dvh; padding: 18px;
+      margin: 0; min-height: 100dvh; padding: 20px;
       display: flex; justify-content: center; align-items: center;
-      background: var(--bg); color: var(--text);
+      background-color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      position: relative;
+      overflow: hidden;
     }
-    .app { width: min(100%, 430px); }
-    .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
-    h1 { margin:0; font-size:20px; font-weight:700; }
-    .badge { color:var(--muted); font-size:12px; }
-    .screen {
-      min-height: 140px; padding: 20px 18px; margin-bottom: 14px;
-      background:var(--panel); border-radius:20px;
-      display:flex; flex-direction:column; justify-content:flex-end; align-items:flex-end;
-      overflow:hidden;
+
+    /* --- Сетка с точками --- */
+    .bg-animation {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 24px);
+      grid-template-rows: repeat(auto-fill, 24px);
+      justify-content: center;
+      align-content: center;
     }
-    #history { min-height:22px; color:var(--muted); font-size:16px; width:100%; text-align:right; overflow:hidden; text-overflow:ellipsis; }
-    #display { width:100%; text-align:right; font-size:clamp(36px, 12vw, 54px); font-weight:600; line-height:1.15; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+
+    .dot {
+      width: 3px;
+      height: 3px;
+      background-color: #000;
+      border-radius: 50%;
+      justify-self: center;
+      align-self: center;
+      opacity: 0.05; /* Базовая прозрачность */
+      will-change: opacity, transform;
+    }
+    /* ------------------------------------- */
+
+    .calculator {
+      width: min(100%, 360px);
+      background: var(--calc-gradient);
+      padding: 24px;
+      border-radius: 40px;
+      box-shadow: 
+        0 30px 60px -12px rgba(0, 0, 0, 0.3),
+        inset 0 3px 5px rgba(255, 255, 255, 1),
+        inset 0 -5px 10px rgba(0, 0, 0, 0.1);
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      z-index: 2;
+    }
+
+    .screen-area {
+      background: #1a1a1a;
+      border-radius: 20px 20px 12px 12px;
+      padding: 12px 14px 18px;
+      margin-bottom: 24px;
+      position: relative;
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.6);
+    }
+
+    .brand {
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .display-panel {
+      background: var(--screen-bg);
+      border-radius: 6px;
+      padding: 10px 14px;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.4);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: flex-end;
+      min-height: 70px;
+      overflow: hidden;
+    }
+
+    #history {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-weight: 300;
+      font-size: 16px;
+      color: rgba(26, 37, 23, 0.5);
+      min-height: 18px;
+      width: 100%;
+      text-align: right;
+      letter-spacing: 1px;
+    }
+
+    #display {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-weight: 300;
+      font-size: clamp(36px, 11vw, 48px);
+      color: var(--screen-text);
+      line-height: 1.1;
+      width: 100%;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: 1px;
+    }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      justify-items: center;
+    }
+
     button {
-      height:64px; border:0; border-radius:16px; background:var(--key); color:var(--text);
-      font-size:23px; font-weight:600; cursor:pointer; touch-action:manipulation;
-      transition:transform .08s, filter .12s;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      border: none;
+      background: var(--btn-gradient);
+      color: var(--btn-text);
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 22px;
+      font-weight: 300;
+      cursor: pointer;
+      box-shadow: 
+        0 6px 10px rgba(0,0,0,0.4),
+        inset 0 2px 4px rgba(255,255,255,0.2),
+        inset 0 -2px 4px rgba(0,0,0,0.5);
+      transition: transform 0.1s, box-shadow 0.1s;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+      z-index: 3;
     }
-    button:active { transform:scale(.96); filter:brightness(1.2); }
-    button.utility { color:var(--accent); }
-    button.operator { background:color-mix(in srgb, var(--accent) 23%, var(--key)); color:var(--accent); }
-    button.equals { background:var(--accent); color:var(--accent-text); }
-    button.wide { grid-column:span 2; }
-    .foot { text-align:center; color:var(--muted); font-size:12px; margin-top:14px; }
-    @media (max-height: 650px) {
-      body { align-items:flex-start; padding-top:10px; }
-      button { height:54px; }
-      .screen { min-height:110px; }
+
+    button:active {
+      transform: translateY(2px);
+      box-shadow: 
+        0 2px 4px rgba(0,0,0,0.4),
+        inset 0 2px 4px rgba(0,0,0,0.6);
+    }
+
+    .btn-utility { font-size: 18px; color: #e2e8f0; }
+    .btn-operator { font-size: 24px; }
+    .btn-equals { font-size: 24px; }
+
+    .btn-zero {
+      grid-column: span 2;
+      border-radius: 40px;
+      aspect-ratio: auto;
+      height: 100%;
+      justify-content: flex-start;
+      padding-left: 28px;
+    }
+
+    @media (max-height: 680px) {
+      body { align-items: flex-start; padding-top: 10px; }
+      .calculator { padding: 18px; }
+      .screen-area { margin-bottom: 16px; padding-bottom: 12px; }
+      .keypad { gap: 8px; }
+      button { font-size: 20px; }
+      .btn-zero { padding-left: 24px; }
     }
   </style>
 </head>
 <body>
-  <main class="app">
-    <header class="top"><h1>Калькулятор</h1><span class="badge">Telegram Mini App</span></header>
-    <section class="screen" aria-live="polite">
-      <div id="history"></div>
-      <div id="display">0</div>
-    </section>
-    <section class="grid" aria-label="Клавиатура калькулятора">
-      <button class="utility" data-action="clear">AC</button>
-      <button class="utility" data-action="sign">±</button>
-      <button class="utility" data-action="percent">%</button>
-      <button class="operator" data-op="÷">÷</button>
 
-      <button data-digit="7">7</button><button data-digit="8">8</button><button data-digit="9">9</button><button class="operator" data-op="×">×</button>
-      <button data-digit="4">4</button><button data-digit="5">5</button><button data-digit="6">6</button><button class="operator" data-op="−">−</button>
-      <button data-digit="1">1</button><button data-digit="2">2</button><button data-digit="3">3</button><button class="operator" data-op="+">+</button>
-      <button class="wide" data-digit="0">0</button><button data-action="decimal">.</button><button class="equals" data-action="equals">=</button>
+  <div class="bg-animation" id="bg-dots"></div>
+
+  <main class="calculator">
+    <div class="screen-area">
+      <span class="brand">TelegraMath</span>
+      <div class="display-panel">
+        <div id="history"></div>
+        <div id="display">0</div>
+      </div>
+    </div>
+
+    <section class="keypad" aria-label="Клавиатура калькулятора">
+      <button class="btn-utility" data-action="clear">AC</button>
+      <button class="btn-utility" data-action="sign">±</button>
+      <button class="btn-utility" data-action="percent">%</button>
+      <button class="btn-operator" data-op="÷">÷</button>
+
+      <button data-digit="7">7</button>
+      <button data-digit="8">8</button>
+      <button data-digit="9">9</button>
+      <button class="btn-operator" data-op="×">×</button>
+
+      <button data-digit="4">4</button>
+      <button data-digit="5">5</button>
+      <button data-digit="6">6</button>
+      <button class="btn-operator" data-op="−">−</button>
+
+      <button data-digit="1">1</button>
+      <button data-digit="2">2</button>
+      <button data-digit="3">3</button>
+      <button class="btn-operator" data-op="+">+</button>
+
+      <button class="btn-zero" data-digit="0">0</button>
+      <button data-action="decimal">.</button>
+      <button class="btn-equals" data-action="equals">=</button>
     </section>
-    <div class="foot">Поддерживает клавиатуру устройства</div>
   </main>
+
 <script>
-(() => {
-  const tg = window.Telegram?.WebApp;
-  if (tg) { tg.ready(); tg.expand(); }
-  const display = document.getElementById('display');
-  const history = document.getElementById('history');
-  let current = '0', previous = null, operator = null, resetNext = false;
-  const render = () => { display.textContent = current; };
-  const clean = n => {
-    if (!Number.isFinite(n)) return 'Ошибка';
-    const rounded = Number(n.toPrecision(12));
-    return String(rounded);
-  };
-  function digit(d) {
-    if (current === 'Ошибка' || resetNext) { current = d; resetNext = false; }
-    else if (current === '0') current = d;
-    else if (current.replace('-', '').length < 14) current += d;
-    render();
-  }
-  function decimal() {
-    if (current === 'Ошибка' || resetNext) { current = '0'; resetNext = false; }
-    if (!current.includes('.')) current += '.';
-    render();
-  }
-  function calculate(a, op, b) {
-    if (op === '+') return a + b;
-    if (op === '−') return a - b;
-    if (op === '×') return a * b;
-    if (op === '÷') return b === 0 ? NaN : a / b;
-    return b;
-  }
-  function choose(op) {
-    if (current === 'Ошибка') return;
-    if (operator && !resetNext) {
-      const result = calculate(Number(previous), operator, Number(current));
-      current = clean(result); render();
-      previous = current;
-    } else previous = current;
-    operator = op; resetNext = true;
-    history.textContent = `${previous} ${operator}`;
-  }
-  function equals() {
-    if (!operator || current === 'Ошибка') return;
-    const left = previous, right = current;
-    current = clean(calculate(Number(left), operator, Number(right)));
-    history.textContent = `${left} ${operator} ${right} =`;
-    previous = null; operator = null; resetNext = true; render();
-  }
-  function clear() { current='0'; previous=null; operator=null; resetNext=false; history.textContent=''; render(); }
-  function action(name) {
-    if (name === 'clear') return clear();
-    if (name === 'decimal') return decimal();
-    if (name === 'equals') return equals();
-    if (current === 'Ошибка') return;
-    if (name === 'sign') current = clean(-Number(current));
-    if (name === 'percent') current = clean(Number(current) / 100);
-    render();
-  }
-  document.querySelector('.grid').addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.digit !== undefined) digit(b.dataset.digit);
-    else if (b.dataset.op) choose(b.dataset.op);
-    else if (b.dataset.action) action(b.dataset.action);
-    if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-  });
-  document.addEventListener('keydown', e => {
-    if (/^[0-9]$/.test(e.key)) digit(e.key);
-    else if (e.key === '.' || e.key === ',') decimal();
-    else if (e.key === '+') choose('+');
-    else if (e.key === '-') choose('−');
-    else if (e.key === '*') choose('×');
-    else if (e.key === '/') { e.preventDefault(); choose('÷'); }
-    else if (e.key === 'Enter' || e.key === '=') equals();
-    else if (e.key === 'Escape' || e.key === 'Delete') clear();
-    else if (e.key === 'Backspace') {
-      current = current.length > 1 ? current.slice(0,-1) : '0'; render();
+  document.addEventListener('DOMContentLoaded', () => {
+    
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); }
+
+    // --- Анимация волн на фоне ---
+    const bgContainer = document.getElementById('bg-dots');
+    let dots = [];
+    let waves = [];
+    let lastTime = 0;
+
+    if (bgContainer) {
+      const gridSize = 24; 
+      const cols = Math.ceil(window.innerWidth / gridSize) + 1;
+      const rows = Math.ceil(window.innerHeight / gridSize) + 1;
+
+      // Генерируем сетку точек
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const dot = document.createElement('div');
+          dot.classList.add('dot');
+          
+          // Сохраняем координаты точки для расчета расстояния до волны
+          const x = c * gridSize + gridSize / 2;
+          const y = r * gridSize + gridSize / 2;
+          dot.dataset.x = x;
+          dot.dataset.y = y;
+          
+          bgContainer.appendChild(dot);
+          dots.push(dot);
+        }
+      }
+
+      // Функция анимации
+      function animateWaves(time) {
+        // Ограничиваем частоту кадров (для экономии батареи)
+        if (time - lastTime > 30) {
+          lastTime = time;
+
+          // С шансом 2% создаем новую волну в случайной точке экрана
+          if (Math.random() < 0.02) {
+            waves.push({
+              x: Math.random() * window.innerWidth,
+              y: Math.random() * window.innerHeight,
+              radius: 0,
+              maxRadius: Math.max(window.innerWidth, window.innerHeight) * 0.8,
+              speed: 4 + Math.random() * 3 // Скорость распространения
+            });
+          }
+
+          // Обновляем существующие волны
+          for (let i = waves.length - 1; i >= 0; i--) {
+            waves[i].radius += waves[i].speed;
+            if (waves[i].radius > waves[i].maxRadius) {
+              waves.splice(i, 1); // Удаляем исчезнувшую волну
+            }
+          }
+
+          // Применяем визуальные изменения к точкам
+          dots.forEach(dot => {
+            const dx = dot.dataset.x - 0; // Координаты точки
+            const dy = dot.dataset.y - 0;
+            let maxIntensity = 0;
+
+            // Проверяем, попадает ли точка под влияние какой-либо волны
+            waves.forEach(wave => {
+              const distance = Math.hypot(dx - wave.x, dy - wave.y);
+              const distFromWave = Math.abs(distance - wave.radius);
+              
+              // Если точка находится близко к гребню волны (ширина гребня ~40px)
+              if (distFromWave < 40) {
+                // Вычисляем интенсивность (плавное затухание к краям гребня)
+                const intensity = Math.cos((distFromWave / 40) * (Math.PI / 2));
+                if (intensity > maxIntensity) {
+                  maxIntensity = intensity;
+                }
+              }
+            });
+
+            // Если точка попала под волну, делаем её ярче и больше
+            if (maxIntensity > 0) {
+              // Затухание волны со временем (чтобы старые волны были слабее новых)
+              const globalFade = waves.length > 0 ? 1 - (waves[0].radius / waves[0].maxRadius) : 1;
+              const finalIntensity = maxIntensity * Math.max(0.3, globalFade);
+              
+              dot.style.opacity = 0.05 + finalIntensity * 0.6;
+              dot.style.transform = `scale(${1 + finalIntensity * 1.5})`;
+            } else {
+              dot.style.opacity = 0.05;
+              dot.style.transform = `scale(1)`;
+            }
+          });
+        }
+        requestAnimationFrame(animateWaves);
+      }
+
+      // Запускаем анимацию
+      requestAnimationFrame(animateWaves);
     }
+    // ----------------------------------
+
+    // --- Логика калькулятора ---
+    const display = document.getElementById('display');
+    const history = document.getElementById('history');
+    let current = '0', previous = null, operator = null, resetNext = false;
+    
+    const render = () => { display.textContent = current; };
+    
+    const clean = n => {
+      if (!Number.isFinite(n)) return 'Ошибка';
+      const rounded = Number(n.toPrecision(12));
+      return String(rounded);
+    };
+
+    function digit(d) {
+      if (current === 'Ошибка' || resetNext) { current = d; resetNext = false; }
+      else if (current === '0') current = d;
+      else if (current.replace('-', '').length < 14) current += d;
+      render();
+    }
+
+    function decimal() {
+      if (current === 'Ошибка' || resetNext) { current = '0'; resetNext = false; }
+      if (!current.includes('.')) current += '.';
+      render();
+    }
+
+    function calculate(a, op, b) {
+      if (op === '+') return a + b;
+      if (op === '−') return a - b;
+      if (op === '×') return a * b;
+      if (op === '÷') return b === 0 ? NaN : a / b;
+      return b;
+    }
+
+    function choose(op) {
+      if (current === 'Ошибка') return;
+      if (operator && !resetNext) {
+        const result = calculate(Number(previous), operator, Number(current));
+        current = clean(result); render();
+        previous = current;
+      } else previous = current;
+      operator = op; resetNext = true;
+      history.textContent = `${previous} ${operator}`;
+    }
+
+    function equals() {
+      if (!operator || current === 'Ошибка') return;
+      const left = previous, right = current;
+      current = clean(calculate(Number(left), operator, Number(right)));
+      history.textContent = `${left} ${operator} ${right} =`;
+      previous = null; operator = null; resetNext = true; render();
+    }
+
+    function clear() { 
+      current='0'; previous=null; operator=null; resetNext=false; 
+      history.textContent=''; render(); 
+    }
+
+    function action(name) {
+      if (name === 'clear') return clear();
+      if (name === 'decimal') return decimal();
+      if (name === 'equals') return equals();
+      if (current === 'Ошибка') return;
+      if (name === 'sign') current = clean(-Number(current));
+      if (name === 'percent') current = clean(Number(current) / 100);
+      render();
+    }
+
+    const keypad = document.querySelector('.keypad');
+    if (keypad) {
+      keypad.addEventListener('click', e => {
+        const b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.digit !== undefined) digit(b.dataset.digit);
+        else if (b.dataset.op) choose(b.dataset.op);
+        else if (b.dataset.action) action(b.dataset.action);
+        
+        if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      });
+    }
+
+    document.addEventListener('keydown', e => {
+      if (/^[0-9]$/.test(e.key)) digit(e.key);
+      else if (e.key === '.' || e.key === ',') decimal();
+      else if (e.key === '+') choose('+');
+      else if (e.key === '-') choose('−');
+      else if (e.key === '*') choose('×');
+      else if (e.key === '/') { e.preventDefault(); choose('÷'); }
+      else if (e.key === 'Enter' || e.key === '=') equals();
+      else if (e.key === 'Escape' || e.key === 'Delete') clear();
+      else if (e.key === 'Backspace') {
+        current = current.length > 1 ? current.slice(0,-1) : '0'; render();
+      }
+    });
+
   });
-})();
 </script>
 </body>
 </html>
